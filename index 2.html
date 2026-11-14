@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Humanizer</title>
+<style>
+:root{--bg:#f6f4ef;--card:#fff;--ink:#1f2430;--mute:#6a7080;--line:#e3dfd6;--acc:#2f6f5e;--acc2:#e9f3ef;--warn:#b4532a;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#14171c;--card:#1d2128;--ink:#eceae4;--mute:#9aa0ae;--line:#2c313b;--acc:#5fc2a5;--acc2:#1b2d28;--warn:#e08a5d}}
+:root[data-theme="dark"]{--bg:#14171c;--card:#1d2128;--ink:#eceae4;--mute:#9aa0ae;--line:#2c313b;--acc:#5fc2a5;--acc2:#1b2d28;--warn:#e08a5d}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:980px;margin:0 auto;padding:28px 16px 48px}
+h1{font:700 30px/1.15 Georgia,"Times New Roman",serif;margin:0 0 6px;letter-spacing:-.01em}
+.sub{color:var(--mute);margin:0 0 22px;max-width:620px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:760px){.grid{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:12px}
+.card h2{margin:0;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--mute);font-weight:600}
+textarea{width:100%;min-height:300px;resize:vertical;border:1px solid var(--line);border-radius:12px;padding:12px;font:inherit;background:var(--bg);color:var(--ink)}
+textarea:focus{outline:2px solid var(--acc);outline-offset:1px}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+button{font:inherit;font-weight:600;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--ink);padding:10px 18px;cursor:pointer}
+button.pri{background:var(--acc);border-color:var(--acc);color:#fff;font-size:17px;padding:12px 26px}
+:root[data-theme="dark"] button.pri{color:#10201a}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) button.pri{color:#10201a}}
+button:active{transform:translateY(1px)}
+label.opt{display:flex;gap:6px;align-items:center;font-size:14px;color:var(--mute);cursor:pointer}
+.stats{display:flex;flex-wrap:wrap;gap:8px}
+.stat{background:var(--acc2);color:var(--acc);border-radius:10px;padding:6px 10px;font-size:13px;font-weight:600}
+.stat.bad{background:rgba(180,83,42,.12);color:var(--warn)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--line);border-radius:999px;padding:3px 10px;font-size:12.5px;color:var(--mute)}
+.chip b{color:var(--ink)}
+details{margin-top:18px;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px 16px}
+summary{cursor:pointer;font-weight:600}
+.blocked{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.blocked span{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:2px 8px;font-size:12.5px;color:var(--mute)}
+.note{color:var(--mute);font-size:13px;margin-top:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Humanizer</h1>
+  <p class="sub">Paste a paragraph or a whole essay, press Humanize, and the page strips out the writing habits that make text read like AI. Everything runs in your browser, nothing is sent anywhere.</p>
+
+  <div class="grid">
+    <div class="card">
+      <h2>Your text</h2>
+      <textarea id="in" placeholder="Paste your paragraph or essay here…"></textarea>
+      <div class="row">
+        <button class="pri" id="go">Humanize</button>
+        <button id="ex">Try an example</button>
+        <button id="clr">Clear</button>
+      </div>
+      <div class="row">
+        <label class="opt"><input type="checkbox" id="oCas" checked> Casual tone (contractions, “like”, “for example”, “so”)</label>
+        <label class="opt"><input type="checkbox" id="oTri" checked> Trim lists of three words to two</label>
+        <label class="opt"><input type="checkbox" id="oOne" checked> Make it one full paragraph</label>
+        <label class="opt"><input type="checkbox" id="oCom" checked> Remove extra commas</label>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Humanized text</h2>
+      <textarea id="out" readonly placeholder="Your cleaned text shows up here."></textarea>
+      <div class="row"><button id="cp">Copy text</button></div>
+      <div class="stats" id="stats"></div>
+      <div class="chips" id="chips"></div>
+    </div>
+  </div>
+
+  <details>
+    <summary>Blocked words and phrases (<span id="bn"></span>)</summary>
+    <div class="blocked" id="bl"></div>
+    <p class="note">The page also removes em dashes, Oxford commas, markdown symbols, chatbot openers like “Certainly!”, “not just X, but Y” patterns, and trailing “highlighting the importance of…” clauses.</p>
+  </details>
+  <p class="note">This is a rule-based editor. It removes known patterns but can’t promise a text will pass any detector, so read the result and adjust it in your own voice before you hand it in.</p>
+</div>
+
+<script>
+var MAP={"delve into":"look into","delves into":"looks into","delving into":"looking into","delve":"dig","delves":"digs","rich tapestry":"mix","tapestry":"mix","stands as a testament to":"shows","serves as a testament to":"shows","a testament to":"proof of","testament to":"proof of","testament":"proof","beacon":"sign","plays a crucial role in":"matters for","plays a pivotal role in":"matters for","plays a vital role in":"matters for","plays a key role in":"matters for","plays a significant role in":"matters for","plays an important role in":"matters for","it is important to note that":"","it's important to note that":"","it is worth noting that":"","it's worth noting that":"","it should be noted that":"","it is no secret that":"","it goes without saying that":"","in today's fast-paced world":"these days","in today's digital age":"these days","in today's world":"these days","in the ever-evolving landscape of":"in","in the realm of":"in","in the context of":"in","ever-evolving":"changing","rapidly evolving":"changing","landscape":"field","realm":"area","leverage":"use","leverages":"uses","leveraging":"using","utilize":"use","utilizes":"uses","utilizing":"using","utilized":"used","facilitate":"help with","facilitates":"helps with","foster":"build","fosters":"builds","fostering":"building","enhance":"improve","enhances":"improves","enhancing":"improving","underscore":"show","underscores":"shows","underscoring":"showing","showcase":"show","showcases":"shows","demonstrate":"show","demonstrates":"shows","multifaceted":"complex","comprehensive":"full","robust":"strong","seamless":"smooth","seamlessly":"smoothly","pivotal":"important","crucial":"key","vital":"important","intricate":"detailed","myriad":"many","plethora":"lot","navigate the complexities of":"deal with","embark on a journey":"start","unlock the potential of":"make the most of","game-changer":"big change","cutting-edge":"new","paradigm shift":"big change","holistic":"overall","meticulous":"careful","meticulously":"carefully","commendable":"good","groundbreaking":"new","transformative":"big","synergy":"teamwork","moreover":"also","furthermore":"also","additionally":"also","in addition":"also","consequently":"so","as a result":"so","therefore":"so","thus":"so","hence":"so","in conclusion":"so","to sum up":"so","in summary":"so","in essence":"basically","essentially":"basically","ultimately":"in the end","at the end of the day":"in the end","nevertheless":"still","nonetheless":"still","a wide range of":"lots of","a variety of":"different","numerous":"many","in order to":"to","due to the fact that":"because","with regard to":"about","when it comes to":"for","serves as":"is","stands as":"is","boasts":"has","such as":"like","for instance":"for example","notably":"especially","importantly":"","aforementioned":"earlier","delineate":"describe","encompass":"include","encompasses":"includes","bolster":"boost","streamline":"simplify","empower":"help","empowers":"helps","revolutionize":"change","pave the way for":"lead to","shed light on":"explain","tailored":"made","spearhead":"lead","invaluable":"useful","captivating":"interesting","vibrant":"lively","bustling":"busy","nestled":"set","profound":"deep","profoundly":"deeply","unwavering":"steady","elevate":"raise","harness":"use","unravel":"figure out","interplay":"mix","nuanced":"subtle","pertinent":"relevant","ensure":"make sure","ensures":"makes sure","ensuring":"making sure","endeavor":"try","commence":"start"};
+var CT={"do not":"don't","does not":"doesn't","did not":"didn't","is not":"isn't","are not":"aren't","was not":"wasn't","were not":"weren't","has not":"hasn't","have not":"haven't","had not":"hadn't","will not":"won't","would not":"wouldn't","should not":"shouldn't","could not":"couldn't","can not":"can't","cannot":"can't","it is":"it's","that is":"that's","there is":"there's","what is":"what's","they are":"they're","we are":"we're","you are":"you're","I am":"I'm","let us":"let's","they have":"they've","we have":"we've","it has":"it's"};
+Object.assign(MAP,{"it is clear that":"","it is evident that":"","there is no doubt that":"","it is undeniable that":"","one might argue that":"","it can be said that":"","needless to say":"","as we can see":"","truly":"","really":"","incredibly":"really","extremely":"really","highly":"very","firstly":"first","secondly":"second","thirdly":"third","lastly":"last","overall":"so","in general":"usually","in particular":"especially","one of the most":"one of the","a growing number of":"more and more","in recent years":"lately","aims to":"tries to","strives to":"tries to","seeks to":"tries to","is able to":"can","has the ability to":"can","a number of":"some","the majority of":"most","in the event that":"if","prior to":"before","subsequent to":"after","in spite of":"despite","as well as":"and","in terms of":"for","on the other hand":"but","by contrast":"but","approximately":"about","sufficient":"enough","require":"need","requires":"needs","obtain":"get","acquire":"get","purchase":"buy","assist":"help","assists":"helps","indicate":"show","indicates":"shows","attempt":"try","attempts":"tries","demonstrated":"showed","implement":"set up","implementation":"setup","individuals":"people","individual":"person","additional":"more","subsequently":"later","initially":"at first","currently":"now","frequently":"often","regarding":"about","concerning":"about","examine":"look at","examines":"looks at","investigate":"look into","significant":"big","substantial":"large","considerable":"large","fundamental":"basic","essential":"key","dramatically":"a lot","optimal":"best","optimize":"improve","minimize":"reduce","terminate":"end","construct":"build","attain":"reach","achieve":"reach","exhibit":"show","exhibits":"shows","possess":"have","possesses":"has","constitute":"make up","contribute to":"add to","contributes to":"adds to","contributing to":"adding to","consequence":"result","consequences":"results","perspective":"view","perspectives":"views","phenomenon":"thing","phenomena":"things","methodology":"method","methodologies":"methods","framework":"plan","paradigm":"model","strategies":"plans","strategy":"plan","emphasize":"stress","emphasizes":"stresses","emphasis":"focus","prevalent":"common","ubiquitous":"everywhere","detrimental":"harmful","beneficial":"helpful","advantageous":"helpful","adverse":"bad","inadequate":"not enough","insufficient":"not enough","imperative":"a must","necessitate":"need","necessitates":"needs","mitigate":"lower","alleviate":"ease","exacerbate":"make worse","exacerbates":"makes worse","contemplate":"think about","comprehend":"understand","elucidate":"explain","articulate":"say","ascertain":"find out","corroborate":"back up","substantiate":"prove","advocate":"support","advocates":"supports","exemplify":"show","exemplifies":"shows","illustrate":"show","illustrates":"shows","signify":"mean","signifies":"means","denote":"mean","implies":"suggests","preliminary":"early","prominent":"well known","diverse":"different","diversity":"mix","paramount":"most important","ramifications":"effects","implications":"effects","implication":"effect","objective":"goal","objectives":"goals","entity":"group","entities":"groups","component":"part","components":"parts","aspect":"part","aspects":"parts","domain":"area","sector":"field","discourse":"talk","dilemma":"problem","hindrance":"problem","impede":"slow down","impedes":"slows down","hinder":"slow down","hinders":"slows down","undermine":"weaken","undermines":"weakens","perpetuate":"keep going","perpetuates":"keeps going","cultivate":"grow","inherent":"built in","inherently":"by nature","intrinsic":"built in","contemporary":"modern","prioritize":"put first","prioritizes":"puts first","collaborate":"work together","collaboration":"teamwork","collaborative":"shared","proficient":"good","proficiency":"skill","comprehension":"understanding","dissemination":"sharing","disseminate":"share","utilization":"use","accumulate":"build up","henceforth":"from now on","whereas":"while","albeit":"though","notwithstanding":"despite","thereby":"so","wherein":"where","consequential":"important"});
+var esc=function(s){return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')};
+var byLen=function(o){return Object.keys(o).sort(function(a,b){return b.length-a.length}).map(esc).join('|')};
+var MAPRE=new RegExp('\\b('+byLen(MAP)+')\\b(,?)','gi');
+var CTRE=new RegExp('\\b('+byLen(CT)+')\\b(?=\\s+\\w)','gi');
+var cap=function(s){return s?s.charAt(0).toUpperCase()+s.slice(1):s};
+var isUp=function(s){return /^[A-Z]/.test(s)};
+
+function humanize(text,casual,tri){
+  var log={},total=0;
+  var bump=function(k){log[k]=(log[k]||0)+1;total++};
+  var t=text.replace(/[\u2019\u2018]/g,"'").replace(/[\u201C\u201D]/g,'"').replace(/\r/g,'');
+
+  t=t.replace(/\*\*|__|`/g,function(){bump('markdown symbols');return ''}).replace(/^#{1,6}\s*/gm,function(){bump('markdown symbols');return ''});
+  t=t.replace(/(^|[.!?]\s+)(?:certainly|sure|absolutely|great question|of course)[!.,]\s*/gi,function(m,a){bump('chatbot opener');return a});
+  t=t.replace(/\s*(?:i hope this helps|let me know if you (?:need|have|want)[^.!?]*|feel free to [^.!?]*)[.!]?/gi,function(){bump('chatbot closer');return ''});
+  t=t.replace(/\s*[\u2014\u2013]\s*|\s+-\s+/g,function(){bump('em dash');return ', '});
+  t=t.replace(/\bnot (?:just|merely|only|simply) ([^,.;!?]{1,60}?),? (?:but also|but rather|but|it's|it is) /gi,function(m,a){bump('negative parallelism');return a+' and '});
+  t=t.replace(/,? (?:highlighting|underscoring|emphasizing|showcasing|reflecting|reinforcing|demonstrating|illustrating) (?:the|its|their|how|a) [^.!?]*(?=[.!?])/gi,function(){bump('importance tail');return ''});
+  t=t.replace(MAPRE,function(m,k,c){
+    var rep=MAP[k.toLowerCase()];bump(k.toLowerCase());
+    if(rep==='')return '';
+    return (isUp(k)?cap(rep):rep)+c;
+  });
+  t=t.replace(/(\b[\w'-]+(?: [\w'-]+){0,3}, [\w'-]+(?: [\w'-]+){0,3}),\s+(and|or)\b/gi,function(m,a,b){bump('Oxford comma');return a+' '+b});
+  if(tri){
+    t=t.replace(/\b([A-Za-z-]+), ([A-Za-z-]+) (and|or) ([A-Za-z-]+)\b/g,function(m,a,b,c,d){bump('rule of three');return a+' '+c+' '+d});
+  }
+  if(casual){
+    t=t.replace(CTRE,function(m){
+      var r=CT[m.toLowerCase()]||CT[m];
+      if(!r)return m;
+      bump('contraction');
+      return isUp(m)?cap(r):r;
+    });
+  }
+  // split very long sentences
+  t=t.split('\n').map(function(p){
+    return p.split(/(?<=[.!?])\s+/).map(function(s){
+      if(s.split(/\s+/).length<=26)return s;
+      if(/; /.test(s)){bump('long sentence split');return s.replace('; ','. ')}
+      var i=s.search(/, (and|but|so) /);
+      if(i>50){bump('long sentence split');return s.replace(/, (and|but|so) /,function(m,w){return '. '+cap(w)+' '})}
+      return s;
+    }).join(' ');
+  }).join('\n');
+  if(document.getElementById('oCom').checked){
+    t=t.replace(/(^|[.!?]\s+|\n)(also|so|still|first|second|third|next|then|finally|now|yes|no|well|but|and|like|in the end|for example|basically|however|plus|though|maybe|lately|usually|especially),\s*/gi,function(m,a,b){bump('comma removed');return a+b+' '});
+    t=t.replace(/(\b(?:[\w'-]+\s+){2,9}[\w'-]+), (and|but|or|so) /g,function(m,a,b){bump('comma removed');return a+' '+b+' '});
+  }
+  if(document.getElementById('oOne').checked){
+    t=t.replace(/\s*\n+\s*/g,function(){bump('paragraph break joined');return ' '});
+  }
+  // cleanup
+  t=t.replace(/[ \t]+/g,' ').replace(/ ([,.;:!?])/g,'$1').replace(/,\s*,/g,',').replace(/([.!?])\s*,\s*/g,'$1 ')
+     .replace(/(^|\n)\s*,\s*/g,'$1').replace(/,\s*([.!?])/g,'$1').replace(/\n{3,}/g,'\n\n');
+  t=t.replace(/(^|[.!?]\s+|\n)([a-z])/g,function(m,a,b){return a+b.toUpperCase()}).trim();
+  var left=(t.match(MAPRE)||[]).length;
+  var hard=[];(t.match(/\b[A-Za-z]{12,}\b/g)||[]).forEach(function(w){w=w.toLowerCase();if(hard.indexOf(w)<0)hard.push(w)});hard=hard.slice(0,8);
+  return {text:t,log:log,total:total,left:left,hard:hard};
+}
+
+var $=function(id){return document.getElementById(id)};
+var words=function(s){return (s.trim().match(/\S+/g)||[]).length};
+var EX="In today's fast-paced world, it is important to note that artificial intelligence plays a pivotal role in education. It is not just a tool, it is a transformative force that fosters innovation, enhances learning, and empowers students. Moreover, educators can leverage cutting-edge platforms to navigate the complexities of modern classrooms \u2014 showcasing the importance of adaptability. Therefore, schools must utilize a comprehensive approach, such as personalized lessons, to unlock the potential of every learner.";
+
+$('go').onclick=function(){
+  var src=$('in').value;
+  if(!src.trim()){$('in').focus();return}
+  var r=humanize(src,$('oCas').checked,$('oTri').checked);
+  $('out').value=r.text;
+  $('stats').innerHTML='<span class="stat">'+r.total+' patterns fixed</span><span class="stat">'+words(src)+' → '+words(r.text)+' words</span><span class="stat'+(r.left?' bad':'')+'">'+r.left+' blocked words left</span>'+(r.hard.length?'<span class="stat bad">Check long words: '+r.hard.join(', ')+'</span>':'');
+  var ks=Object.keys(r.log).sort(function(a,b){return r.log[b]-r.log[a]}).slice(0,14);
+  $('chips').innerHTML=ks.map(function(k){return '<span class="chip">'+k.replace(/</g,'&lt;')+' <b>×'+r.log[k]+'</b></span>'}).join('');
+};
+$('ex').onclick=function(){$('in').value=EX;$('go').click()};
+$('clr').onclick=function(){$('in').value='';$('out').value='';$('stats').innerHTML='';$('chips').innerHTML='';$('in').focus()};
+$('cp').onclick=function(){
+  var o=$('out');if(!o.value)return;
+  var done=function(){$('cp').textContent='Copied!';setTimeout(function(){$('cp').textContent='Copy text'},1400)};
+  try{navigator.clipboard.writeText(o.value).then(done,function(){o.select();document.execCommand('copy');done()})}
+  catch(e){o.select();document.execCommand('copy');done()}
+};
+var keys=Object.keys(MAP).sort();
+$('bn').textContent=keys.length;
+$('bl').innerHTML=keys.map(function(k){return '<span>'+k+'</span>'}).join('');
+</script>
+</body>
+</html>
